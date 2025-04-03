@@ -193,7 +193,7 @@ function itonics_nirala_faculty_view($faculty_id)
 
   $commands = [];
   $commands[] = ctools_modal_command_display('Faculty Details', $content);
-  
+
   print ajax_render($commands);
   exit;
 }
@@ -354,18 +354,16 @@ function nirala_itonics_faculty_delete_page($id)
   ctools_include('modal');
   ctools_modal_add_js();
 
-  // Fetch Faculty Data
-  $faculty = db_select('itonics_nirala_faculty', 'p')
-    ->fields('p')
-    ->condition('id', $id)
-    ->execute()
-    ->fetchAssoc();
-
-  if (!$faculty) {
+  // Load Faculty Entity using Entity API
+  $entities = entity_load('itonics_nirala_faculty', [$id]);
+  if (empty($entities)) {
     drupal_set_message(t('Faculty not found.'), 'error');
     return drupal_goto('admin/itonics_faculty');
   }
 
+  $faculty = reset($entities);
+
+  // Render the delete confirmation form
   $form = drupal_get_form('nirala_itonics_faculty_delete_form', $faculty);
   $commands[] = ctools_modal_command_display("Delete Faculty", $form);
 
@@ -376,16 +374,19 @@ function nirala_itonics_faculty_delete_form($form, &$form_state, $faculty)
 {
   $form['id'] = [
     '#type' => 'hidden',
-    '#value' => $faculty['id'],
+    '#value' => $faculty->id,
   ];
+
+  // Confirmation form
   $form = confirm_form(
     $form,
-    'Are you sure, Do you want to delete?',
+    t('Are you sure, Do you want to delete?'),
     'activity-list',
-    'The action cannot be undone.',
-    'Delete',
-    'Cancel',
+    t('The action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
   );
+
   return $form;
 }
 
@@ -395,22 +396,34 @@ function nirala_itonics_faculty_delete_form_submit($form, &$form_state)
   ctools_include('modal');
   ctools_modal_add_js();
 
+  // Get the faculty id from the form state
   $id = $form_state['values']['id'];
 
-  // Delete Faculty
+  // Load Faculty Entity using Entity API
+  $entities = entity_load('itonics_nirala_faculty', [$id]);
+  if (empty($entities)) {
+    drupal_set_message(t('Faculty not found.'), 'error');
+    return drupal_goto('admin/itonics_faculty');
+  }
+
+  $faculty = reset($entities);
+
   db_delete('itonics_nirala_faculty')
     ->condition('id', $id)
     ->execute();
 
-  if ($form_state['submitted']) {
-    $commands[] = ctools_modal_command_dismiss();
-    drupal_set_message(t('Faculty details deleted successfully.'));
+  drupal_set_message(t('Faculty details deleted successfully.'));
 
-    $commands[] = ctools_ajax_command_redirect('admin/itonics_faculty');
-    print ajax_render($commands);
-    exit;
-  }
+
+  // Close modal and redirect
+  $commands[] = ctools_modal_command_dismiss(); 
+  $commands[] = ctools_ajax_command_redirect('admin/itonics_faculty'); 
+
+  print ajax_render($commands);
+  exit;
 }
+
+
 
 /**
  * Implements hook_form_alter().

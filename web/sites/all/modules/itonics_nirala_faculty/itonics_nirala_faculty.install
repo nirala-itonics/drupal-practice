@@ -1,6 +1,7 @@
 <?php
 
-function itonics_nirala_faculty_schema() {
+function itonics_nirala_faculty_schema()
+{
     $schema = array();
 
     $schema['itonics_nirala_faculty'] = array(
@@ -10,41 +11,12 @@ function itonics_nirala_faculty_schema() {
                 'not null' => TRUE,
                 'description' => 'Primary Key: Unique ID for each record.',
             ),
+
             'name' => array(
                 'type' => 'varchar',
                 'not null' => TRUE,
-                'length' => 100,
+                'length' => 255,
                 'description' => 'Name of each faculty.',
-            ),
-            'faculty_designation' => array(
-                'type' => 'varchar',
-                'length' => 255,
-                'not null' => FALSE,
-                'description' => 'Designation of the faculty.',
-            ),
-            'faculty_department' => array(
-                'type' => 'int',
-                'not null' => FALSE,
-                'description' => 'Reference to department taxonomy term ID.',
-            ),
-            'faculty_profile_picture' => array(
-                'type' => 'varchar',
-                'length' => 255,
-                'not null' => FALSE,
-                'description' => 'Faculty profile picture path.',
-            ),
-            'status' => array(
-                'type' => 'int',
-                'size' => 'tiny',
-                'not null' => FALSE,
-                'default' => 1,
-                'description' => 'Status of faculty.',
-            ),
-            'created' => array(
-                'type' => 'int',
-                'not null' => TRUE,
-                'default' => REQUEST_TIME,
-                'description' => 'Timestamp of when the faculty was created.',
             ),
         ),
         'primary key' => array('id'),
@@ -56,108 +28,80 @@ function itonics_nirala_faculty_schema() {
 /**
  * Faculty table update
  */
-function itonics_nirala_faculty_update_7000() {
+function itonics_nirala_faculty_update_7000()
+{
     $table = 'itonics_nirala_faculty';
 
     if (!db_table_exists($table)) {
-        db_create_table($table, itonics_nirala_faculty_schema()['itonics_nirala_faculty']);
+        $schema = [
+            'description' => 'Table for storing faculty information.',
+            'fields' => [
+                'id' => [
+                    'type' => 'serial',
+                    'not null' => TRUE,
+                ],
+                'name' => [
+                    'type' => 'varchar',
+                    'length' => 100,
+                    'not null' => TRUE,
+                    'description' => 'Faculty name',
+                ],
+                'created' => [
+                    'type' => 'int',
+                    'not null' => TRUE,
+                    'default' => REQUEST_TIME,
+                    'description' => 'Timestamp of when the faculty was created.',
+                ],
+            ],
+            'primary key' => ['id'],
+        ];
+
+        db_create_table('itonics_nirala_faculty', $schema);
     }
 }
 
 /**
- * Add status field
+ * Status field added for faculty
  */
-function itonics_nirala_faculty_update_7001() {
+
+function itonics_nirala_faculty_update_7001()
+{
     $table = 'itonics_nirala_faculty';
-    $column = 'status';
+    $column = 'faculty_id';
 
-    if (db_table_exists($table) && !db_field_exists($table, $column)) {
-        $spec = array(
-            'type' => 'int',
-            'size' => 'tiny',
-            'description' => 'Status of faculty.',
-            'not null' => FALSE,
-            'default' => 1,
-        );
-        db_add_field($table, $column, $spec);
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'int',
+                'size' => 'tiny',
+                'description' => "Status of faculty",
+                'not null' => FALSE,
+                'default' => 1,
+            );
+
+            db_add_field('itonics_nirala_faculty', 'status', $spec);
+        }
     }
 }
 
 /**
- * Reduce name length
+ * Name length reduced
  */
-function itonics_nirala_faculty_update_7002() {
+function itonics_nirala_faculty_update_7002()
+{
+
     $table = 'itonics_nirala_faculty';
     $column = 'name';
 
-    if (db_table_exists($table) && db_field_exists($table, $column)) {
-        $spec = array(
-            'type' => 'varchar',
-            'length' => 100,
-            'not null' => TRUE,
-            'description' => 'Faculty name',
-        );
-        db_change_field($table, $column, $column, $spec);
-    }
-}
-
-/**
- * Add faculty designation and department fields
- */
-function itonics_nirala_faculty_update_7003() {
-    $table = 'itonics_nirala_faculty';
-
-    if (db_table_exists($table)) {
-        if (!db_field_exists($table, 'faculty_designation')) {
-            db_add_field($table, 'faculty_designation', array(
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
                 'type' => 'varchar',
-                'length' => 255,
-                'not null' => FALSE,
-                'description' => 'Designation of the faculty.',
-            ));
+                'length' => 100,
+                'not null' => TRUE,
+                'description' => 'Faculty name',
+            );
+            db_change_field('itonics_nirala_faculty', 'name', 'name', $spec);
         }
-        if (!db_field_exists($table, 'faculty_department')) {
-            db_add_field($table, 'faculty_department', array(
-                'type' => 'int',
-                'not null' => FALSE,
-                'description' => 'Reference to department taxonomy term ID.',
-            ));
-        }
-    }
-}
-
-/**
- * Add faculty profile picture field
- */
-function itonics_nirala_faculty_update_7004() {
-    $table = 'itonics_nirala_faculty';
-    $column = 'faculty_profile_picture';
-
-    if (db_table_exists($table) && !db_field_exists($table, $column)) {
-        db_add_field($table, $column, array(
-            'type' => 'varchar',
-            'length' => 255,
-            'not null' => FALSE,
-            'description' => 'Faculty profile picture path.',
-        ));
-    }
-}
-
-
-/**
- * change faculty_department data type
- */
-function itonics_nirala_faculty_update_7006() {
-    $table = 'itonics_nirala_faculty';
-    $column = 'faculty_department';
-
-    if (db_table_exists($table) && !db_field_exists($table, $column)) {
-        $spec = array(
-           'type' => 'varchar',
-            'length' => 100,
-            'not null' => FALSE,
-            'description' => 'Faculty department.',
-        );
-        db_change_field($table, $column, $column, $spec);
     }
 }

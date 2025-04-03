@@ -21,10 +21,31 @@ function itonics_nirala_faculty_entity_info()
         'custom settings' => FALSE,
       ),
     ),
+    'fields' => itonics_nirala_faculty_field_info()['itonics_nirala_faculty']['fields'],
+
   );
 
   return $info;
 }
+
+/**
+ * Implements hook_field_info().
+ */
+function itonics_nirala_faculty_field_info() {
+  $info = array();
+
+  $info['itonics_nirala_faculty']['fields'] = array(
+    'name' => array(
+      'type' => 'text',
+      'label' => t('Faculty Name'),
+      'description' => t('The name of the faculty member'),
+      'required' => TRUE,
+    )
+  );
+
+  return $info;
+}
+
 
 function itonics_nirala_faculty_uri($entity)
 {
@@ -406,7 +427,6 @@ function nirala_itonics_faculty_delete_form_submit($form, &$form_state)
     return drupal_goto('admin/itonics_faculty');
   }
 
-  $faculty = reset($entities);
 
   db_delete('itonics_nirala_faculty')
     ->condition('id', $id)

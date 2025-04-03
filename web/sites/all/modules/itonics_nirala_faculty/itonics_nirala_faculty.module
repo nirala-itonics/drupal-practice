@@ -147,8 +147,58 @@ function itonics_nirala_faculty_menu()
     'type' => MENU_CALLBACK,
   ];
 
+  $items['admin/itonics_faculty/%'] = array(
+    'title' => t('View Faculty'),
+    'page callback' => 'itonics_nirala_faculty_view',
+    'page arguments' => [2],
+    'access callback' => 'user_access',
+    'access arguments' => ['view itonics nirala faculty'],
+    'type' => MENU_CALLBACK,
+  );
+
   return $items;
 }
+
+
+function itonics_nirala_faculty_view($faculty_id)
+{
+  ctools_include('ajax');
+  ctools_include('modal');
+  ctools_modal_add_js();
+
+  $entities = entity_load('itonics_nirala_faculty', [$faculty_id]);
+  if (!empty($entities)) {
+    $entity = reset($entities);
+  }
+
+  if (empty($entity)) {
+    drupal_set_message(t('Faculty not found'), 'error');
+    return drupal_goto('admin/itonics_faculty');
+  }
+
+  $build = entity_view('itonics_nirala_faculty', $entity);
+
+  $content = [
+    '#theme' => 'item_list',
+    '#items' => [
+      '<h2>' . check_plain($entity->name) . '</h2>',
+      l(t('Back to Faculty'), 'admin/itonics_faculty', ['attributes' => ['class' => ['back-to-faculty']]]),
+    ],
+    '#attributes' => ['class' => ['faculty-view']],
+  ];
+
+  if (isset($build) && is_array($build)) {
+    $content = array_merge($content, $build);
+  }
+
+  $commands = [];
+  $commands[] = ctools_modal_command_display('Faculty Details', $content);
+  
+  print ajax_render($commands);
+  exit;
+}
+
+
 
 function itonics_nirala_faculty_page()
 {
@@ -179,7 +229,8 @@ function itonics_nirala_faculty_page()
   foreach ($faculties  as $faculty) {
     $links = [];
 
-    // Create the edit and delete buttons for each faculty
+    // Create the edit,view  and delete buttons for each faculty
+    $links[] =  ctools_modal_text_button(t('View Faculty'), 'admin/itonics_faculty/'  . $faculty->id, t('Edit Faculty via Modal'),  '');
     $links[] = ctools_modal_text_button(t('Edit Faculty'), 'admin/itonics_faculty/edit/'  . $faculty->id, t('Edit Faculty via Modal'),  'ctools-modal-modal-popup-small');
     $links[] = ctools_modal_text_button(
       t('Delete Faculty'),
@@ -213,12 +264,12 @@ function itonics_nirala_faculty_page()
 }
 
 
-function itonics_nirala_faculty_form_load($id=NULL)
+function itonics_nirala_faculty_form_load($id = NULL)
 {
   ctools_include('ajax');
   ctools_include('modal');
   ctools_modal_add_js();
- 
+
   // Pass faculty data to the form
   $form = drupal_get_form('itonics_nirala_faculty_form', $id);
   $commands[] = ctools_modal_command_display("Faculty", $form);

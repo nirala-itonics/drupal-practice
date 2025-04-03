@@ -1,4 +1,0 @@
-name = File example
-description = Examples of using the Drupal File API and Stream Wrappers.
-package = Example modules
-core = 7.x

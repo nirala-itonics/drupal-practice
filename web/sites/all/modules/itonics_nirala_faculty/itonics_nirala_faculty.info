@@ -1,0 +1,8 @@
+name = "ITonics Faculty Management"
+description = "A module to manage faculties/programs using CTools."
+core = 7.x
+package = Custom
+dependencies[] = itonics_nirala_student
+dependencies[] = itonics_nirala_teacher
+dependencies[] = ctools
+files[] = itonics_nirala_faculty.module

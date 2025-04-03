@@ -1,0 +1,455 @@
+<?php
+include_once(drupal_get_path('module', 'itonics_nirala_student') . '/itonics_nirala_student.constants.inc');
+
+/**
+ * Implements hook_permission().
+ */
+function itonics_nirala_student_permission(): array
+{
+    return [
+        'view itonics nirala student' => [
+            'title' => t('View Itonics Nirala Student'),
+            'description' => t('Access to view student details.'),
+        ],
+        'add itonics nirala student' => [
+            'title' => t('Add Itonics Nirala Student'),
+            'description' => t('Access to add student details.'),
+        ],
+        'edit itonics nirala student' => [
+            'title' => t('Edit Itonics Nirala Student'),
+            'description' => t('Access to edit student details.'),
+        ],
+        'delete itonics nirala student' => [
+            'title' => t('Delete Itonics Nirala Student'),
+            'description' => t('Access to delete student details.'),
+        ]
+    ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function itonics_nirala_student_menu()
+{
+    $items = [];
+
+    // Admin page to list students.
+    $items['admin/student'] = [
+        'title' => t('Student List'),
+        'page callback' => 'itonics_nirala_student_list_page',
+        'page arguments' => [],
+        'access callback' => 'user_access',
+        'access arguments' => ['view itonics nirala student'],
+        'type' => MENU_NORMAL_ITEM,
+    ];
+
+    // Create student form.
+    $items['admin/student/create'] = [
+        'title' => t('Create Student'),
+        'page callback' => 'itonics_nirala_student_form_page',
+        'page arguments' => [''],
+        'access callback' => 'user_access',
+        'access arguments' => ['add itonics nirala student'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Edit student page.
+    $items['admin/student/edit/%'] = [
+        'title' => t('Edit Student'),
+        'page callback' => 'itonics_nirala_student_form_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => ['edit itonics nirala student'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // View student page.
+    $items['admin/student/view/%'] = [
+        'title' => t('View Student'),
+        'page callback' => 'itonics_nirala_student_view_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('view itonics nirala student'),
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Delete student page.
+    $items['admin/student/delete/%'] = [
+        'title' => t('Delete Student'),
+        'page callback' => 'itonics_nirala_student_delete_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('delete itonics nirala student'),
+        'type' => MENU_CALLBACK,
+    ];
+    return $items;
+}
+
+
+// list view of student module
+function itonics_nirala_student_list_page()
+{
+    $output = '';
+
+    // Get the search term from the URL parameter.
+    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $output .= itonics_nirala_student_search_form($search_term);
+
+    $limit = 10; // Number of records per page.
+
+    // Build the base query.
+    $query = db_select('itonics_nirala_student', 'p')
+        ->fields('p', ['id', 'student_id', 'first_name', 'last_name', 'gender', 'grade', 'admission_date', 'created', 'description']);
+
+    // Apply search filters if a search term is provided.
+    if (!empty($search_term)) {
+        $or_conditions = db_or()
+            ->condition('p.first_name', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.last_name', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.student_id', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.grade', '%' . db_like($search_term) . '%', 'LIKE');
+        $query->condition($or_conditions);
+    }
+
+    // Get the total number of students (for pagination).
+    $total_students = clone $query;
+    $total_students = $total_students->countQuery()->execute()->fetchField();
+
+    // If no students are found, show a message.
+    if ($total_students == 0) {
+        $output .= '<p>' . t('No students found.') . '</p>';
+        return $output;
+    }
+
+    // Add pagination.
+    $current_page = pager_find_page();
+    $offset = $current_page * $limit;
+    $query->range($offset, $limit);
+
+    // Execute the query.
+    $result = $query->execute();
+
+    // Generate the student table.
+    $output .= itonics_nirala_student_table($result, $offset);
+
+    // Generate pagination links.
+    $output .= itonics_nirala_student_pager($total_students,'10');
+    
+
+    return $output;
+}
+
+
+
+//search form for student
+function itonics_nirala_student_search_form($search_term = '') {
+    drupal_add_css(drupal_get_path('module', 'itonics_nirala_student') . '/itonics_nirala_student.css');
+
+    $output = '<div class="search-container">
+               <form method="get" action="">
+                   <input type="text" name="search" placeholder="' . t('Search by any field') . '" value="' . htmlspecialchars($search_term) . '" class="input-style"/>
+                   <button type="submit" class="button-style">' . t('Search') . '</button>
+                   <a href="' . url('admin/student/list') . '" class="reset-button">' . t('Reset') . '</a>
+               </form>
+               <a href="' . url('admin/student/create') . '" class="create-button">' . t('Create Student') . '</a>
+           </div>';
+
+    return $output;
+}
+
+// student module table
+function itonics_nirala_student_table($result, $offset)
+{
+    $output = '<table style="width: 100%; border-collapse: collapse;">';
+    $output .= '<tr style="background-color: #f8f9fa;">
+                   <th>' . t('S.N.') . '</th>
+                   <th>' . t('Name') . '</th>
+                   <th>' . t('Gender') . '</th>
+                   <th>' . t('Grade') . '</th>
+                     <th>' . t('Student Id') . '</th>
+                   <th>' . t('Admission Date') . '</th>
+                   <th>' . t('Created at') . '</th>
+                   <th>' . t('Description') . '</th>
+                   <th>' . t('Actions') . '</th>
+               </tr>';
+
+    $serial_no = $offset + 1;
+
+    foreach ($result as $student) {
+        $output .= '<tr>';
+        $output .= '<td>' . $serial_no++ . '</td>';
+        $output .= '<td>' . $student->first_name . ' ' . $student->last_name . '</td>';
+        $output .= '<td>' . $student->gender . '</td>';
+        $output .= '<td>' . $student->grade . '</td>';
+        $output .= '<td>' . $student->student_id . '</td>';
+        $output .= '<td>' . $student->admission_date . '</td>';
+        $output .= '<td>' . $student->created . '</td>';
+        $output .= '<td>' . $student->description . '</td>';
+        $output .= '<td>
+            <a href="' . url('admin/student/edit/' . $student->id) . '" 
+               style="padding: 5px 10px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 3px; margin-right: 5px;">' . t('Edit') . '</a>
+            <a href="' . url('admin/student/delete/' . $student->id) . '" 
+               style="padding: 5px 10px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 3px;">' . t('Delete') . '</a>
+        </td>';
+
+        $output .= '</tr>';
+    }
+
+    $output .= '</table>';
+
+    return $output;
+}
+
+
+function itonics_nirala_student_pager($total_students, $limit)
+{
+    pager_default_initialize($total_students, $limit);
+    return theme('pager');
+}
+
+function itonics_nirala_student_form_page()
+{
+    $form = drupal_get_form('itonics_nirala_student_form');
+    return drupal_render($form);
+}
+
+function itonics_nirala_student_form($form, &$form_state)
+{
+    $id = arg(3);
+
+    if (is_numeric($id)) {
+        $student = db_select('itonics_nirala_student', 'p')
+            ->fields('p')
+            ->condition('id', $id)
+            ->execute()
+            ->fetchObject();
+    }
+
+
+    // first name
+    $form['first_name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('First Name'),
+        '#required' => TRUE,
+        '#weight' => 1, 
+        '#default_value' => isset($student->first_name) ? check_plain($student->first_name) : '',
+    );
+
+    // last name
+    $form['last_name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Last Name'),
+        '#required' => TRUE,
+        '#weight' => 2, 
+        '#default_value' => isset($student->last_name) ? check_plain($student->last_name) : '',
+    );
+    // Image
+    $form['profile_picture'] = array(
+        '#type' => 'file',
+        '#title' => t('Profile Picture'),
+        '#description' => t('Upload a profile picture'),
+        '#weight' => 3, 
+        '#default_value' => isset($student->profile_picture) ? check_plain($student->profile_picture) : '',
+    );
+
+  
+    // Description
+    $form['description'] = array(
+        '#type' => 'text_format',
+        '#title' => t('Description'),
+        '#format' => 'filtered_html',
+        '#weight' => 4, 
+        '#default_value' => isset($student->description) ? filter_xss($student->description) : '',
+        '#required' => TRUE,
+    );
+
+
+    global $grade_options;
+
+    $form['grade'] = [
+        '#type' => 'select',
+        '#title' => t('Grade'),
+        '#options' => $grade_options, 
+        '#required' => TRUE,
+        '#weight' => 5, 
+        '#default_value' => isset($student->grade) ? filter_xss($student->grade) : '',
+    ];
+
+
+    global $gender_options;
+    $form['gender'] = array(
+        '#type' => 'radios',
+        '#title' => t('Gender'),
+        '#required' => TRUE,
+        '#weight' => 6, 
+        '#options' => $gender_options,
+        '#default_value' => isset($student->gender) ? filter_xss($student->gender) : '',
+    );
+
+
+    // Admission Date
+    $form['admission_date'] = [
+        '#type' => 'date',
+        '#title' => t('Admission Date'),
+        '#date_format' => 'Y-m-d',
+        '#weight' => 7, 
+        '#date_increment' => 1,
+        //  '#default_value' => isset($product->expiry_date) ? $product->expiry_date : '',
+    ];
+
+    // Submit Button
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#weight' => 9, 
+        '#value' => t('Save Student'),
+    );
+
+    return $form;
+}
+
+
+function itonics_nirala_student_form_submit($form, &$form_state)
+{
+    $values = $form_state['values'];
+    $file_url = itonics_nirala_student_image_validate();
+    $id = arg(3);
+
+    if (empty($file_url) && is_numeric($id)) {
+        $existing_student = db_select('itonics_nirala_student', 'p')
+            ->fields('p', ['profile_picture'])
+            ->condition('id', $id)
+            ->execute()
+            ->fetchObject();
+        if ($existing_student) {
+            $file_url = $existing_student->profile_picture;
+        }
+    }
+
+    $studentId = 'STU' . time() . rand(100, 999);
+
+    $studentdata = [
+        'first_name' => $values['first_name'],
+        'last_name' => $values['last_name'],
+        'student_id' => $studentId,
+        'profile_picture' => $file_url,
+        'gender' => $values['gender'],
+        'description' => $values['description']['value'],
+        'grade' => $values['grade'],
+        'faculty_id' => $values['faculty_id'],
+        'created' => date('Y-m-d H:i:s', REQUEST_TIME),
+        'changed' => date('Y-m-d H:i:s', REQUEST_TIME),
+        'admission_date' => isset($values['admission_date'])
+            ? sprintf('%04d-%02d-%02d 00:00:00', $values['admission_date']['year'], $values['admission_date']['month'], $values['admission_date']['day'])
+            : date('Y-m-d H:i:s'),
+    ];
+
+    if (!is_numeric($id)) {
+        $studentdata['created'] = date('Y-m-d H:i:s', REQUEST_TIME);
+        $id = itonics_nirala_student_actions($studentdata);
+    } else {
+        $studentdata['changed'] = date('Y-m-d H:i:s', REQUEST_TIME);
+
+        if (!empty($file_url) && !empty($existing_student) && $existing_student->profile_picture !== $file_url) {
+            $old_image_path = $existing_student->profile_picture;
+            if (file_exists($old_image_path)) {
+                unlink($old_image_path);
+            }
+        }
+        itonics_nirala_student_actions($studentdata, $id);
+    }
+
+    $form_state['redirect'] = 'admin/student';
+}
+
+
+function itonics_nirala_student_actions($data, $student_id = NULL)
+{
+    if ($student_id) {
+        db_update('itonics_nirala_student')
+            ->fields($data)
+            ->condition('id', $student_id)
+            ->execute();
+        drupal_set_message(t('Student updated successfully.'));
+    } else {
+        $student_id = db_insert('itonics_nirala_student')
+            ->fields($data)
+            ->execute();
+        drupal_set_message(t('Studemt created successfully.'));
+    }
+    return $student_id;
+}
+
+
+
+function itonics_nirala_student_image_validate()
+{
+    if (!empty($_FILES['files']['name']['profile_picture'])) {
+        $file = file_save_upload('profile_picture', [
+            'file_validate_is_image' => [],
+            'file_validate_extensions' => ['png gif jpg jpeg'],
+        ]);
+
+        if ($file) {
+            $unique_filename = 'itonics_' . uniqid() . '.' . pathinfo($file->filename, PATHINFO_EXTENSION);
+            $target_directory = 'public://student_images/';
+
+            if (!file_prepare_directory($target_directory, FILE_CREATE_DIRECTORY)) {
+                form_set_error('', t('Failed to prepare the target directory.'));
+            }
+
+            $file_path = $target_directory . $unique_filename;
+            if (!file_move($file, $file_path, FILE_EXISTS_REPLACE)) {
+                form_set_error('profile_picture', t('Failed to move the uploaded file.'));
+            } else {
+                $file->uri = $file_path;
+                $file->status = FILE_STATUS_PERMANENT;
+                file_save($file);
+
+                $file_url = file_create_url($file->uri);
+                return $file_url;
+            }
+        } else {
+            form_set_error('profile_picture', t('The file could not be uploaded. Please try again.'));
+        }
+    }
+}
+
+
+
+function itonics_nirala_student_delete_page($id)
+{
+   
+    $student = db_select('itonics_nirala_student', 'p')
+        ->fields('p')
+        ->condition('id', $id)
+        ->execute()
+        ->fetchObject();
+
+    if (!$student) {
+        return t('Student not found.');
+    }
+
+    if (isset($_POST['confirm_delete'])) {
+
+        if (isset($student->profile_picture) && file_exists($$student->profile_picture)) {
+            unlink($student->profile_picture);
+        }
+
+
+        db_delete('itonics_nirala_student')
+            ->condition('id', $id)
+            ->execute();
+
+        drupal_set_message(t('Student deleted successfully.'));
+        return drupal_goto('admin/student');
+    }
+
+    $output = '<h2>' . t('Are you sure you want to delete this student?') . '</h2>';
+    $output .= '<p><strong>' . t('Name') . ':</strong> ' . $student->first_name . ' ' . $student->last_name . '</p>';
+    $output .= '<form method="post">';
+    $output .= '<input type="submit" name="confirm_delete" value="' . t('Yes, Delete') . '" class="button">';
+    $output .= '<a href="' . url('admin/student') . '" class="button">' . t('Cancel') . '</a>';
+    $output .= '</form>';
+
+    return $output;
+}

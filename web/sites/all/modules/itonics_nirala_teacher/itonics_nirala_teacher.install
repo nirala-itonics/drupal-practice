@@ -1,0 +1,222 @@
+<?php
+
+function itonics_nirala_teacher_schema()
+{
+    $schema = array();
+
+    $schema['itonics_nirala_teacher'] = array(
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'not null' => TRUE,
+                'description' => 'Primary Key: Unique ID for each record.',
+            ),
+            'teacher_id' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Teacher id of each record.',
+            ),
+            'first_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'First name of each record.',
+            ),
+            'last_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Last Name of each record.',
+            ),
+            'profile_picture' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => FALSE,
+                'description' => 'Profile Picture of each record.',
+            ),
+            'gender' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Gender of each record.',
+            ),
+            'job_type' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Job type of each record.',
+            ),
+            'join_date' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Join date of each record.',
+            ),
+            'description' => array(
+                'type' => 'text',
+                'not null' => FALSE,
+                'description' => 'Description of each record.',
+            ),
+            'created' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'datetime',
+                'not null' => TRUE,
+                'description' => 'Created timestamp of each record.',
+            ),
+            'changed' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'datetime',
+                'not null' => TRUE,
+                'description' => 'Updated timestamp of each record.',
+            ),
+            'faculty_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+                'description' => 'Faculty of each record.',
+            ),
+            'district_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+                'description' => 'district of each record.',
+            ),
+        ),
+        'primary key' => array('id'),
+        'indexes' => array(
+            'teacher_id' => array('teacher_id'),
+            'faculty_id' => array('faculty_id'),
+            'district_id' => array('district_id'),
+        ),
+    );
+
+    $schema['itonics_nirala_states'] = array(
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'not null' => TRUE,
+            ),
+            'state_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+            ),
+            'state_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+            ),
+        ),
+        'primary key' => array('id'),
+    );
+
+    $schema['itonics_nirala_districts'] = array(
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'not null' => TRUE,
+            ),
+            'itonics_nirala_states_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+            ),
+            'district_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+            ),
+            'district_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+            ),
+        ),
+        'primary key' => array('id'),
+        'indexes' => array(
+            'state_id' => array('itonics_nirala_states_id'),
+        ),
+        'foreign keys' => array(
+            'itonics_nirala_states_fk' => array(
+                'table' => 'itonics_nirala_states',
+                'columns' => array('itonics_nirala_states_id' => 'id'),
+            ),
+        ),
+    );
+
+    return $schema;
+}
+
+/**  
+ * Test Column for practice
+ * 
+ * */
+function itonics_nirala_teacher_update_7000()
+{
+    $table = 'itonics_nirala_teacher';
+    $column = 'test';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'varchar',
+                'description' => "New Col",
+                'length' => 20,
+                'not null' => FALSE,
+            );
+            db_add_field('itonics_nirala_teacher', 'test', $spec);
+        }
+    }
+}
+
+/**
+ * test column removed
+ */
+function itonics_nirala_teacher_update_7001()
+{
+    $table = 'itonics_nirala_teacher';
+    $column = 'test';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            db_drop_field('itonics_nirala_teacher', 'test');
+        }
+    }
+}
+
+/**
+ * District field for teacher
+ */
+
+function itonics_nirala_teacher_update_7002()
+{
+    $table = 'itonics_nirala_teacher';
+    $column = 'district_id';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'int',
+                'description' => "district of teacher",
+                'not null' => FALSE,
+            );
+            db_add_field('itonics_nirala_teacher', 'district_id', $spec);
+        }
+    }
+}
+
+/**
+ * Faculty field for teacher
+ */
+function itonics_nirala_teacher_update_7003()
+{
+    $table = 'itonics_nirala_teacher';
+    $column = 'faculty_id';
+
+    if (!db_table_exists($table)) {  
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'int',
+                'description' => "faculty of teacher",
+                'not null' => FALSE,
+            );
+            db_add_field('itonics_nirala_teacher', 'faculty_id', $spec);
+        }
+    }
+}

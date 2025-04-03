@@ -1,0 +1,65 @@
+<?php
+/**
+ * Implements hook_permission().
+ */
+function nirala_itonics_products_category_permission(): array
+{
+    return [
+        'administer products category' => [
+            'title' => t('Administer products category'),
+            'description' => t('Access to product category administration.'),
+        ]
+    ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function nirala_itonics_products_category_menu()
+{
+    $items = [];
+
+    // Admin page to list products category.
+    $items['admin/productscategory'] = [
+        'title' => t('Product Category List'),
+        'page callback' => 'nirala_itonics_products_category_list_page',
+        'page arguments' => [],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products category'],
+        'type' => MENU_NORMAL_ITEM,
+    ];
+
+    // Create product form category.
+    $items['admin/productscategory/create'] = [
+        'title' => t('Create Product Category'),
+        'page callback' => 'nirala_itonics_products_category_form_page',
+        'page arguments' => [''],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products category'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Edit product category page.
+    $items['admin/productscategory/edit/%'] = [
+        'title' => t('Edit Product Category'),
+        'page callback' => 'nirala_itonics_products_category_form_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products category'],
+        'type' => MENU_CALLBACK,
+    ];
+
+
+    // Delete product category page.
+    $items['admin/productscategory/delete/%'] = [
+        'title' => t('Delete Product'),
+        'page callback' => 'nirala_itonics_products_category_delete_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('administer products category'),
+        'type' => MENU_CALLBACK,
+    ];
+    return $items;
+}
+
+require_once(drupal_get_path('module', 'nirala_itonics_products_category') . '/nirala_itonics_products_category.admin.inc');

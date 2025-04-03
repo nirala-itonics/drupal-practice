@@ -1,0 +1,4 @@
+name = "Itonics Nirala Teacher"
+description = "A module to manage nirala itonics teacher"
+core = 7.x
+package = Custom

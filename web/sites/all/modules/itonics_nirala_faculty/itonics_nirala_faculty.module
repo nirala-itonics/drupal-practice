@@ -1,0 +1,440 @@
+<?php
+
+function itonics_nirala_faculty_entity_info()
+{
+  $info['itonics_nirala_faculty'] = array(
+    'label' => t('Faculty'),
+    'controller class' => 'ItonicsNiralaFacultyController',
+    'base table' => 'itonics_nirala_faculty',
+    'uri callback' => 'nirala_itonics_faculty_basic_uri',
+
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+    ),
+    'view modes' => array(
+      'full' => array(
+        'label' => t('Full'),
+        'custom settings' => FALSE,
+      ),
+    ),
+    'form modes' => array(
+      'default' => array(
+        'label' => t('Default'),
+        'custom settings' => FALSE,
+      ),
+    ),
+  );
+  return $info;
+}
+
+function itonics_nirala_faculty_basic_uri($faculty) {
+  return array(
+    'path' => 'admin/itonics_faculty/' . $faculty->id,
+  );
+}
+
+function itonics_nirala_faculty_permission()
+{
+  return [
+    'view itonics nirala faculty' => [
+      'title' => t('View Faculty'),
+      'description' => t('Access to view faculty details.'),
+    ],
+    'add itonics nirala faculty' => [
+      'title' => t('Add Faculty'),
+      'description' => t('Access to add faculty details.'),
+    ],
+    'edit itonics nirala faculty' => [
+      'title' => t('Edit Faculty'),
+      'description' => t('Access to edit faculty details.'),
+    ],
+    'delete itonics nirala faculty' => [
+      'title' => t('Delete Faculty'),
+      'description' => t('Access to delete faculty details.'),
+    ],
+  ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function itonics_nirala_faculty_menu()
+{
+  $items = array();
+
+  $items['admin/itonics_faculty'] = array(
+    'title' => 'Manage Faculty',
+    'page callback' => 'itonics_nirala_faculty_list_page',
+    'access arguments' => array('view itonics nirala faculty'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/itonics_faculty/add'] = array(
+    'title' => 'Add Faculty',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('itonics_nirala_faculty_form'),
+    'access arguments' => array('add itonics nirala faculty'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/itonics_faculty/edit/%'] = array(
+    'title' => 'Edit Faculty',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('itonics_nirala_faculty_form', 3),
+    'access arguments' => array('edit itonics nirala faculty'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/itonics_faculty/delete/%'] = array(
+    'title' => 'Delete Faculty',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('itonics_nirala_faculty_delete_form', 3),
+    'access arguments' => array('delete itonics nirala faculty'),
+    'type' => MENU_CALLBACK,
+);
+
+
+  return $items;
+}
+
+/**
+ * Faculty list page.
+ */
+function itonics_nirala_faculty_list_page() {
+  $header = array(
+      array('data' => t('ID')),
+      array('data' => t('Name')),
+      array('data' => t('Designation')),
+      array('data' => t('Department')),
+      array('data' => t('Operations')),
+  );
+
+  $faculties = entity_load('itonics_nirala_faculty');
+
+  if (empty($faculties)) {
+      drupal_set_message(t('No faculty members found.'), 'warning');
+      return;
+  }
+
+  $rows = array();
+  foreach ($faculties as $faculty) {
+      $designation = isset($faculty->faculty_designation) ? $faculty->faculty_designation : 'N/A';
+      $department = isset($faculty->faculty_department) ? $faculty->faculty_department : 'N/A';
+
+      $rows[] = array(
+          'data' => array(
+              check_plain($faculty->id),
+              check_plain($faculty->name),
+              check_plain($designation),
+              check_plain($department),
+              l(t('Edit'), 'admin/itonics_faculty/edit/' . $faculty->id) . ' | ' .
+              l(t('Delete'), 'admin/itonics_faculty/delete/' . $faculty->id),
+          ),
+      );
+  }
+
+  return theme('table', array('header' => $header, 'rows' => $rows));
+}
+
+
+
+class ItonicsNiralaFacultyController extends DrupalDefaultEntityController
+{
+
+  /**
+   * Create and return a new itonics_nirala_faculty entity.
+   */
+  public function create()
+  {
+    $entity = new stdClass();
+    $entity->type = 'itonics_nirala_faculty'; 
+    $entity->id = 0;
+    $entity->name = ''; 
+    $entity->created = REQUEST_TIME;
+    return $entity;
+  }
+
+  /**
+   * Saves the entity using drupal_write_record().
+   */
+  public function save($entity)
+  {
+    if (empty($entity->id)) {
+      $entity->created = time();
+    }
+
+    module_invoke_all('entity_presave', $entity, 'itonics_nirala_faculty');
+
+    // Determine if it's an insert or update
+    $primary_keys = $entity->id ? 'id' : array();
+
+    drupal_write_record('itonics_nirala_faculty', $entity, $primary_keys);
+
+    $invocation = empty($primary_keys) ? 'entity_insert' : 'entity_update';
+
+    if (empty($primary_keys)) {
+      field_attach_insert('itonics_nirala_faculty', $entity);
+    } else {
+      field_attach_update('itonics_nirala_faculty', $entity);
+    }
+
+    module_invoke_all($invocation, $entity, 'itonics_nirala_faculty');
+
+    return $entity;
+  }
+
+
+  
+}
+
+
+function itonics_nirala_faculty_field_info() {
+  $fields = array();
+
+  // Faculty Designation Field
+  $fields['faculty_designation'] = array(
+    'label' => t('Designation'),
+    'description' => t('Faculty Designation'),
+    'type' => 'text',
+    'settings' => array('max_length' => 255),
+  );
+
+  $fields['faculty_department'] = array(
+    'label' => t('Department'),
+    'description' => t('Faculty Department'),
+    'type' => 'text',
+    'settings' =>  array('max_length' => 100),
+  );
+
+  // Faculty Profile Picture (Image)
+  $fields['faculty_profile_picture'] = array(
+    'label' => t('Profile Picture'),
+    'description' => t('Faculty Profile Picture'),
+    'type' => 'image',
+    'settings' => array('file_directory' => 'faculty_pictures'),
+  );
+
+  return $fields;
+}
+
+
+function itonics_nirala_faculty_field_instance_info() {
+  $instances = array();
+
+  // Attach Designation Field
+  $instances['faculty_designation'] = array(
+    'field_name' => 'faculty_designation',
+    'entity_type' => 'itonics_nirala_faculty',
+    'bundle' => 'faculty',
+    'label' => t('Designation'),
+    'required' => TRUE,
+  );
+
+  // Attach Department Field
+  $instances['faculty_department'] = array(
+    'field_name' => 'faculty_department',
+    'entity_type' => 'itonics_nirala_faculty',
+    'bundle' => 'faculty',
+    'label' => t('Department'),
+    'required' => FALSE,
+  );
+
+  // Attach Profile Picture Field
+  $instances['faculty_profile_picture'] = array(
+    'field_name' => 'faculty_profile_picture',
+    'entity_type' => 'itonics_nirala_faculty',
+    'bundle' => 'faculty',
+    'label' => t('Profile Picture'),
+    'required' => FALSE,
+  );
+
+  return $instances;
+}
+
+/**
+ * Faculty form.
+ */
+function itonics_nirala_faculty_form($form, &$form_state, $faculty_id = NULL) {
+  $entity = NULL;
+
+  if ($faculty_id) {
+      $entities = entity_load('itonics_nirala_faculty', $faculty_id);
+      if (!empty($entities)) {
+          $entity = reset($entities); // Get first entity from loaded array
+      }
+  }
+
+  $form['faculty_id'] = array(
+      '#type' => 'hidden',
+      '#value' => isset($entity->id) ? $entity->id : '',
+  );
+
+  $form['name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Name'),
+      '#default_value' => isset($entity->name) ? $entity->name : '',
+      '#required' => TRUE,
+  );
+
+  $form['faculty_designation'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Designation'),
+      '#default_value' => isset($entity->faculty_designation) ? $entity->faculty_designation : '',
+  );
+
+  $form['faculty_department'] = array(
+    '#type' => 'textfield',
+      '#title' => t('Department'),
+      '#default_value' => isset($entity->faculty_department) ? $entity->faculty_department : '',
+  );
+
+  $form['faculty_profile_picture'] = array(
+      '#type' => 'managed_file',
+      '#title' => t('Profile Picture'),
+      '#upload_location' => 'public://faculty_pictures/',
+      '#default_value' => isset($entity->faculty_profile_picture) ? array($entity->faculty_profile_picture) : '',
+  );
+
+  $form['actions']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save Faculty'),
+  );
+
+  return $form;
+}
+
+
+function itonics_nirala_faculty_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $faculty_id = !empty($values['faculty_id']) ? $values['faculty_id'] : NULL;
+
+  // Get the entity controller
+  $controller = entity_get_controller('itonics_nirala_faculty');
+
+  if ($faculty_id) {
+      $faculty = entity_load_single('itonics_nirala_faculty', $faculty_id);
+  } else {
+      $faculty = $controller->create();
+  }
+
+  $faculty->name = $values['name'];
+  $faculty->faculty_designation = $values['faculty_designation'];
+  $faculty->faculty_department = $values['faculty_department'];
+  $faculty->faculty_profile_picture= $values['faculty_profile_picture'];
+
+  $controller->save($faculty);
+
+  drupal_set_message(t('Faculty details saved successfully.'));
+  $form_state['redirect'] = 'admin/itonics_faculty';
+}
+
+function itonics_nirala_faculty_delete_form($form, &$form_state, $faculty_id)
+{
+    $entities = entity_load('itonics_nirala_faculty', array($faculty_id));
+    $faculty = !empty($entities) ? reset($entities) : NULL;
+
+    if (!$faculty) {
+        drupal_set_message(t('Faculty not found.'), 'error');
+        return;
+    }
+
+    $form['faculty_id'] = array(
+        '#type' => 'hidden',
+        '#value' => $faculty->id,
+    );
+
+    $form['message'] = array(
+        '#markup' => '<p>' . t('Are you sure you want to delete faculty: @name?', array('@name' => check_plain($faculty->name))) . '</p>',
+    );
+
+    $form['actions']['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Delete'),
+    );
+
+    $form['actions']['cancel'] = array(
+        '#markup' => l(t('Cancel'), 'admin/itonics_faculty', array('attributes' => array('class' => array('button')))),
+    );
+
+    return $form;
+}
+
+function itonics_nirala_faculty_delete_form_submit($form, &$form_state)
+{
+    $faculty_id = $form_state['values']['faculty_id'];
+
+    $controller = entity_get_controller('itonics_nirala_faculty');
+
+    $entities = entity_load('itonics_nirala_faculty', array($faculty_id));
+    $faculty = !empty($entities) ? reset($entities) : NULL;
+
+    if ($faculty) {
+        $controller->delete($faculty);
+        drupal_set_message(t('Faculty deleted successfully.'));
+    } else {
+        drupal_set_message(t('Error: Faculty not found!'), 'error');
+    }
+
+    $form_state['redirect'] = 'admin/itonics_faculty';
+}
+
+
+//implementation of hook_form_alter
+function itonics_nirala_faculty_form_alter(&$form, &$form_state, $form_id)
+{
+  $id = arg(3);
+  $table = ($form_id == "itonics_nirala_student_form") ? 'itonics_nirala_student' : 'itonics_nirala_teacher';
+
+  if ($form_id == "itonics_nirala_student_form" || $form_id == "itonics_nirala_teacher_form") {
+    // Fetch faculty data
+    $faculty = db_select('itonics_nirala_faculty', 's')
+      ->fields('s', ['id', 'name'])
+      ->execute()
+      ->fetchAllKeyed();
+
+    $faculty_id = NULL;
+
+    if (!empty($id) && is_numeric($id)) {
+      $faculty_id = db_select($table, 't')
+        ->fields('t', ['faculty_id'])
+        ->condition('t.id', $id, '=')
+        ->execute()
+        ->fetchField();
+    }
+
+    $form['faculty_id'] = [
+      '#type' => 'select',
+      '#title' => t('Faculty'),
+      '#options' => ['' => t('- Select Faculty -')] + $faculty,
+      '#required' => FALSE,
+      '#weight' => 8,
+      '#default_value' => isset($faculty_id) ? filter_xss($faculty_id) : '',
+    ];
+  }
+}
+
+
+
+function itonics_nirala_faculty_schema_alter(&$schema)
+{
+  // Add field to existing schema.
+  $schema['itonics_nirala_student']['fields']['timezone_id'] = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'Test field.',
+  );
+}
+
+/**
+ * Implements hook_query_alter().
+ */
+function itonics_nirala_faculty_query_alter($query)
+{
+  if ($query->hasTag('faculty_query')) {
+    $query->condition('status', '1');
+
+    $query->addMetadata('debug', 'Faculty query altered to include only active records');
+  }
+}

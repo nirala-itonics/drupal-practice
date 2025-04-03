@@ -1,0 +1,5 @@
+name = "Nirala Itonics Product Category"
+description = "A module to manage products category in ITONICS"
+core = 7.x
+package = Custom
+

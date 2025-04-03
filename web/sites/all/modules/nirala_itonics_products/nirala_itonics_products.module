@@ -1,0 +1,589 @@
+<?php
+
+/**
+ * Implements hook_permission().
+ */
+function nirala_itonics_products_permission(): array
+{
+    return [
+        'administer products' => [
+            'title' => t('Administer products'),
+            'description' => t('Access to product administration.'),
+        ]
+    ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function nirala_itonics_products_menu()
+{
+    $items = [];
+
+    // Admin page to list products.
+    $items['admin/products'] = [
+        'title' => t('Product List'),
+        'page callback' => 'nirala_itonics_products_list_page',
+        'page arguments' => [],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products'],
+        'type' => MENU_NORMAL_ITEM,
+    ];
+
+    // Create product form.
+    $items['admin/products/create'] = [
+        'title' => t('Create Product'),
+        'page callback' => 'nirala_itonics_products_form_page',
+        'page arguments' => ['new'],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Edit product page.
+    $items['admin/products/edit/%'] = [
+        'title' => t('Edit Product'),
+        'page callback' => 'nirala_itonics_products_form_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => ['administer products'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // View product page.
+    $items['admin/products/view/%'] = [
+        'title' => t('View Product'),
+        'page callback' => 'nirala_itonics_products_view_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('administer products'),
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Delete product page.
+    $items['admin/products/delete/%'] = [
+        'title' => t('Delete Product'),
+        'page callback' => 'nirala_itonics_products_delete_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('administer products'),
+        'type' => MENU_CALLBACK,
+    ];
+    return $items;
+}
+
+function nirala_itonics_products_list_page()
+{
+    $output = '';
+
+    // Get the search term from the query string.
+    $search_term = isset($_GET['search']) ? $_GET['search'] : '';
+    $output .= nirala_itonics_products_search_form($search_term);
+
+    // Set the limit for pagination.
+    $limit = 10;
+
+    // Build the main query to fetch products.
+    $query = db_select('nirala_itonics_products', 'p')
+        ->fields('p', array('id', 'title', 'image', 'summary', 'description', 'type', 'owner_email', 'expiry_date'));
+    $query->leftJoin('nirala_itonics_products_category_map', 'cm', 'cm.nirala_itonics_products_id = p.id');
+    $query->leftJoin('nirala_itonics_products_category', 'c', 'c.id = cm.nirala_itonics_products_category_id');
+    $query->addExpression('GROUP_CONCAT(DISTINCT c.title)', 'categories');
+
+    // Apply the search conditions if a search term is provided.
+    if (!empty($search_term)) {
+        $or_conditions = db_or()
+            ->condition('p.title', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.summary', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.description', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.type', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.owner_email', '%' . db_like($search_term) . '%', 'LIKE');
+        $query->condition($or_conditions);
+    }
+
+    // Group by product ID for correct aggregation.
+    $query->groupBy('p.id');
+
+    // Get the total number of products.
+    $total_products = $query->countQuery()->execute()->fetchField();
+
+    // Check if there are no products.
+    if ($total_products == 0) {
+        $output .= '<p>' . t('No products found.') . '</p>';
+        return $output;
+    }
+
+    // Determine the current page and the offset for pagination.
+    $current_page = pager_find_page();
+    $offset = $current_page * $limit;
+
+    // Apply pagination range to the query.
+    $query->range($offset, $limit);
+
+    // Execute the query and fetch the results.
+    $result = $query->execute();
+
+    // Generate the product table with the fetched results.
+    $output .= nirala_itonics_products_table($result, $offset);
+
+    // Add pagination links.
+    $output .= nirala_itonics_products_pager($total_products, $limit);
+
+    return $output;
+}
+
+
+function nirala_itonics_products_search_form($search_term = '')
+{
+    $input_style = 'padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; width: 300px;';
+    $button_style = 'padding: 10px 20px; background-color: #007bff; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+    $right_button_style = 'margin-left: auto; padding: 10px 20px; background-color: #007bff; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+    $reset_button_style = 'padding: 10px 20px; background-color: #6c757d; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+
+    $output = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+               <form method="get" action="" style="display: flex; gap: 10px;">
+                   <input type="text" name="search" placeholder="' . t('Search by any field') . '" value="' . htmlspecialchars($search_term) . '" 
+                          style="' . $input_style . '"/>
+                   <button type="submit" style="' . $button_style . '">' . t('Search') . '</button>
+                   <a href="' . url('admin/products/list') . '" style="' . $reset_button_style . '">' . t('Reset') . '</a>
+               </form>
+               <a href="' . url('admin/products/create') . '" 
+                  style="' . $right_button_style . '">' . t('Create Product') . '</a>
+           </div>';
+
+    return $output;
+}
+
+
+function nirala_itonics_products_table($result, $offset)
+{
+    $output = '<table style="width: 100%; border-collapse: collapse;">';
+    $output .= '<tr style="background-color: #f8f9fa;">
+                   <th>' . t('S.N.') . '</th>
+                   <th>' . t('Title') . '</th>
+                   <th>' . t('Summary') . '</th>
+                   <th>' . t('Description') . '</th>
+                   <th>' . t('Category') . '</th>
+                   <th>' . t('Type') . '</th>
+                   <th>' . t('Owner Email') . '</th>
+                   <th>' . t('Expiry Date') . '</th>
+                   <th>' . t('Actions') . '</th>
+               </tr>';
+
+    $serial_no = $offset + 1;
+
+    foreach ($result as $product) {
+        $output .= '<tr>';
+        $output .= '<td>' . $serial_no++ . '</td>';
+        $output .= '<td>' . $product->title . '</td>';
+        $output .= '<td>' . $product->summary . '</td>';
+        $output .= '<td>' . $product->description . '</td>';
+        $output .= '<td>' . (!empty($product->categories) ? $product->categories : t('No categories assigned')) . '</td>';
+        $output .= '<td>' . $product->type . '</td>';
+        $output .= '<td>' . $product->owner_email . '</td>';
+        $output .= '<td>' . $product->expiry_date . '</td>';
+        $output .= '<td>
+            <a href="' . url('admin/products/edit/' . $product->id) . '" 
+               style="padding: 5px 10px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 3px; margin-right: 5px;">' . t('Edit') . '</a>
+            <a href="' . url('admin/products/view/' . $product->id) . '" 
+               style="padding: 5px 10px; background-color: #17a2b8; color: #fff; text-decoration: none; border-radius: 3px; margin-right: 5px;">' . t('View') . '</a>
+            <a href="' . url('admin/products/delete/' . $product->id) . '" 
+               style="padding: 5px 10px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 3px;">' . t('Delete') . '</a>
+        </td>';
+
+        $output .= '</tr>';
+    }
+
+    $output .= '</table>';
+
+    return $output;
+}
+
+
+function nirala_itonics_products_pager($total_products, $limit)
+{
+    pager_default_initialize($total_products, $limit);
+    return theme('pager');
+}
+
+/**
+ * Page callback for product form.
+ */
+function nirala_itonics_products_form_page()
+{
+    $form = drupal_get_form('nirala_itonics_products_form');
+    return drupal_render($form);
+}
+
+/**
+ * Form for creating or editing a product.
+ */
+function nirala_itonics_products_form($form, &$form_state)
+{
+    $product_id = arg(3);
+
+    if (is_numeric($product_id)) {
+        $product = db_select('nirala_itonics_products', 'p')
+            ->fields('p')
+            ->condition('id', $product_id)
+            ->execute()
+            ->fetchObject();
+    }
+
+
+    // Title
+    $form['title'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Title'),
+        '#required' => TRUE,
+        '#default_value' => isset($product->title) ? check_plain($product->title) : '',
+    );
+
+    // Image
+    $form['image'] = array(
+        '#type' => 'file',
+        '#title' => t('Image'),
+        '#description' => t('Upload a product image'),
+        '#default_value' => isset($product->image) ? check_plain($product->image) : '',
+    );
+
+    // Summary
+    $form['summary'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Summary'),
+        '#default_value' => isset($product->summary) ? check_plain($product->summary) : '',
+    );
+
+    // Description
+    $form['description'] = array(
+        '#type' => 'text_format',
+        '#title' => t('Description'),
+        '#format' => 'filtered_html',
+        '#default_value' => isset($product->description) ? filter_xss($product->description) : '',
+        '#required' => TRUE,
+    );
+
+    $categories = db_select('nirala_itonics_products_category', 'npc')
+        ->fields('npc', ['id', 'title'])
+        ->condition('npc.status', 1)
+        ->execute()
+        ->fetchAllKeyed();
+
+
+    // Fetch saved categories for the product.
+    $saved_categories = [];
+    if (isset($product->id)) {
+        $saved_categories = db_select('nirala_itonics_products_category_map', 'map')
+            ->fields('map', ['nirala_itonics_products_category_id'])
+            ->condition('nirala_itonics_products_id', $product->id)
+            ->execute()
+            ->fetchCol();
+    }
+
+    $form['category'] = [
+        '#type' => 'select',
+        '#title' => t('Category'),
+        '#options' => $categories,
+        '#required' => TRUE,
+        '#multiple' => TRUE,
+        '#default_value' => $saved_categories,
+        '#attributes' => ['class' => ['jquery-ui-multiselect']],
+        '#attached' => [
+            'js' => [
+                drupal_get_path('module', 'jquery_ui_multiselect') . '/jquery.ui.multiselect.js',
+            ],
+            'css' => [
+                drupal_get_path('module', 'jquery_ui_multiselect') . '/jquery.ui.multiselect.css',
+            ],
+        ],
+    ];
+
+    // Type
+    $form['type'] = array(
+        '#type' => 'radios',
+        '#title' => t('Type'),
+        '#required' => TRUE,
+        '#options' => array(
+            'type_1' => t('Type 1'),
+            'type_2' => t('Type 2'),
+        ),
+        '#default_value' => isset($product->type) ? check_plain($product->type) : '',
+    );
+
+    // Owner Email
+    $form['owner_email'] = [
+        '#type' => 'textfield',
+        '#title' => t('Owner Email'),
+        '#required' => TRUE,
+        '#element_validate' => ['nirala_itonics_products_email_validate'],
+        '#default_value' => isset($product->owner_email) ? check_plain($product->owner_email) : '',
+    ];
+
+    // Expiry Date
+    $form['expiry_date'] = [
+        '#type' => 'date',
+        '#title' => t('Expiry Date'),
+        '#date_format' => 'Y-m-d',
+        '#date_increment' => 1,
+        //  '#default_value' => isset($product->expiry_date) ? $product->expiry_date : '',
+    ];
+
+    // Submit Button
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Save Product'),
+    );
+
+    return $form;
+}
+
+
+
+function nirala_itonics_products_email_validate($element, &$form_state, $form)
+{
+    $value = $form_state['values']['owner_email'];
+
+    if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+        form_error($element, t('The email address is not valid.'));
+    }
+}
+
+
+function nirala_itonics_products_form_submit($form, &$form_state)
+{
+    $values = $form_state['values'];
+    $file_url = NULL;
+
+    $file_url = nirala_itonics_products_image_validate();
+
+    $product_id = arg(3);
+
+    if (empty($file_url) && is_numeric($product_id)) {
+        $existing_product = db_select('nirala_itonics_products', 'p')
+            ->fields('p', array('image'))
+            ->condition('id', $product_id)
+            ->execute()
+            ->fetchObject();
+
+        if ($existing_product) {
+            $file_url = $existing_product->image;
+        }
+    }
+
+
+
+    $productdata = array(
+        'title' => $values['title'],
+        'image' => $file_url,
+        'summary' => $values['summary'],
+        'description' => $values['description']['value'],
+        'type' => $values['type'],
+        'owner_email' => $values['owner_email'],
+        'expiry_date' => isset($values['expiry_date'])
+            ? sprintf('%04d-%02d-%02d', $values['expiry_date']['year'], $values['expiry_date']['month'], $values['expiry_date']['day'])
+            : date('Y-m-d'),
+    );
+
+
+    if (!is_numeric($product_id)) {
+        // Insert a new product and get its ID
+        $product_id = nirala_itonics_products_actions($productdata);
+    } else {
+        if (!empty($file_url) && !empty($existing_product) && $existing_product->image !== $file_url) {
+            $old_image_path = $existing_product->image;
+            if (file_exists($old_image_path)) {
+                unlink($old_image_path);
+            }
+        }
+        // Update existing product
+        nirala_itonics_products_actions($productdata, $product_id);
+    }
+
+    if (is_numeric($product_id) && !empty($values['category'])) {
+        // Delete existing mappings for the product
+        db_delete('nirala_itonics_products_category_map')
+            ->condition('nirala_itonics_products_id', $product_id)
+            ->execute();
+    }
+
+    foreach ($values['category'] as $category_id) {
+        db_insert('nirala_itonics_products_category_map')
+            ->fields(array(
+                'nirala_itonics_products_id' => $product_id,
+                'nirala_itonics_products_category_id' => $category_id
+            ))
+            ->execute();
+    }
+    $form_state['redirect'] = 'admin/products';
+}
+
+function nirala_itonics_products_actions($data, $product_id = NULL)
+{
+    if ($product_id) {
+        db_update('nirala_itonics_products')
+            ->fields($data)
+            ->condition('id', $product_id)
+            ->execute();
+        drupal_set_message(t('Product updated successfully.'));
+    } else {
+        $product_id = db_insert('nirala_itonics_products')
+            ->fields($data)
+            ->execute();
+        drupal_set_message(t('Product created successfully.'));
+    }
+    return $product_id;
+}
+
+
+
+function nirala_itonics_products_image_validate()
+{
+    if (!empty($_FILES['files']['name']['image'])) {
+        $file = file_save_upload('image', [
+            'file_validate_is_image' => [],
+            'file_validate_extensions' => ['png gif jpg jpeg'],
+        ]);
+
+        if ($file) {
+            $unique_filename = 'itonics_' . uniqid() . '.' . pathinfo($file->filename, PATHINFO_EXTENSION);
+            $target_directory = 'public://product_images/';
+
+            if (!file_prepare_directory($target_directory, FILE_CREATE_DIRECTORY)) {
+                form_set_error('image', t('Failed to prepare the target directory.'));
+            }
+
+            $file_path = $target_directory . $unique_filename;
+            if (!file_move($file, $file_path, FILE_EXISTS_REPLACE)) {
+                form_set_error('image', t('Failed to move the uploaded file.'));
+            } else {
+                $file->uri = $file_path;
+                $file->status = FILE_STATUS_PERMANENT;
+                file_save($file);
+
+                $file_url = file_create_url($file->uri);
+                return $file_url;
+            }
+        } else {
+            form_set_error('image', t('The file could not be uploaded. Please try again.'));
+        }
+    }
+}
+
+
+/**
+ * Page callback for viewing a product.
+ */
+
+function nirala_itonics_products_view_page()
+{
+    $product_id = arg(3);
+    $product = db_select('nirala_itonics_products', 'p')
+        ->fields('p')
+        ->condition('id', $product_id)
+        ->execute()
+        ->fetchObject();
+
+    $categories = db_select('nirala_itonics_products_category_map', 'pcm')
+        ->fields('pcm', ['nirala_itonics_products_category_id'])
+        ->condition('nirala_itonics_products_id', $product_id)
+        ->execute()
+        ->fetchAll();
+
+    $category_names = array();
+
+    // Fetch the category names from nirala_itonics_products_category table
+    foreach ($categories as $category) {
+        $category_name = db_select('nirala_itonics_products_category', 'pc')
+            ->fields('pc', ['title']) // Assuming 'name' field holds the category name
+            ->condition('id', $category->nirala_itonics_products_category_id)
+            ->execute()
+            ->fetchField();
+
+        if ($category_name) {
+            $category_names[] = $category_name;
+        }
+    }
+
+    if ($product) {
+        $output = '<h2>' . t('Product Details') . '</h2>';
+        $output .= '<div><strong>' . t('Title:') . '</strong> ' . $product->title . '</div>';
+        $output .= '<div><strong>' . t('Summary:') . '</strong> ' . $product->summary . '</div>';
+        $output .= '<div><strong>' . t('Description:') . '</strong> ' . $product->description . '</div>';
+
+        $output .= '<div><strong>' . t('Category:') . '</strong> ' . implode(', ', $category_names) . '</div>';
+
+        $output .= '<div><strong>' . t('Type:') . '</strong> ' . $product->type . '</div>';
+
+        $output .= '<div><strong>' . t('Owner Email:') . '</strong> ' . $product->owner_email . '</div>';
+
+        $output .= '<div><strong>' . t('Expiry Date:') . '</strong> ' . $product->expiry_date . '</div>';
+
+        if (!empty($product->image)) {
+            $image_url = file_create_url($product->image);
+
+            $output .= '<div>
+                             <strong>' . t('Image:') . '</strong><br>
+                             <img src="' . $image_url . '" alt="' . $product->title . '" style="max-width: 300px; height: auto;">
+                         </div>';
+        } else {
+            $output .= '<div>' . t('No image available.') . '</div>';
+        }
+
+        $output .= '<div style="margin-top: 20px;">
+         <a href="' . url('admin/products') . '" 
+            style="padding: 5px 10px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 3px; font-size: 14px;">
+            ' . t('Back to Product List') . '
+         </a>
+     </div>';
+
+        return $output;
+    } else {
+        return t('Product not found.');
+    }
+}
+
+
+
+/**
+ * Page callback for deleting a product.
+ */
+function nirala_itonics_products_delete_page()
+{
+    $product_id = arg(3);
+    $product = db_select('nirala_itonics_products', 'p')
+        ->fields('p')
+        ->condition('id', $product_id)
+        ->execute()
+        ->fetchObject();
+
+    if (!$product) {
+        return t('Product not found.');
+    }
+
+    if (isset($_POST['confirm_delete'])) {
+
+        if (isset($product->image) && file_exists($product->image)) {
+            unlink($product->image);
+        }
+
+        db_delete('nirala_itonics_products_category_map')
+            ->condition('nirala_itonics_products_id', $product_id)
+            ->execute();
+
+        db_delete('nirala_itonics_products')
+            ->condition('id', $product_id)
+            ->execute();
+
+        drupal_set_message(t('Product deleted successfully.'));
+        return drupal_goto('admin/products');
+    }
+
+    $output = '<h2>' . t('Are you sure you want to delete this product?') . '</h2>';
+    $output .= '<p><strong>' . t('Title') . ':</strong> ' . $product->title . '</p>';
+    $output .= '<form method="post">';
+    $output .= '<input type="submit" name="confirm_delete" value="' . t('Yes, Delete') . '" class="button">';
+    $output .= '<a href="' . url('admin/products') . '" class="button">' . t('Cancel') . '</a>';
+    $output .= '</form>';
+
+    return $output;
+}

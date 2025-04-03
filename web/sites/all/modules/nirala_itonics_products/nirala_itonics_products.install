@@ -1,0 +1,87 @@
+<?php
+/**
+ * Implements hook_schema().
+ */
+function nirala_itonics_products_schema() {
+  $schema = array();
+
+  $schema['nirala_itonics_products'] = array(
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'summary' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'description' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'type' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'owner_email' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'expiry_date' => array(
+        'description' => 'The expiry date of the product.',
+        'type' => 'date',
+        'mysql_type' => 'date',
+      ),
+      'image' => array(  
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['nirala_itonics_products_category_map'] = array(
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'nirala_itonics_products_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Foreign key referencing nirala_itonics_products.id.',
+      ),
+      'nirala_itonics_products_category_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Foreign key referencing nirala_itonics_products_category.id.',
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'product_id' => array('nirala_itonics_products_id'),
+      'category_id' => array('nirala_itonics_products_category_id'),
+    ),
+    'foreign keys' => array(
+      'nirala_itonics_products_fk' => array(
+        'table' => 'nirala_itonics_products',
+        'columns' => array('nirala_itonics_products_id' => 'id'),
+      ),
+      'nirala_itonics_products_category_fk' => array(
+        'table' => 'nirala_itonics_products_category',
+        'columns' => array('nirala_itonics_products_category_id' => 'id'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+

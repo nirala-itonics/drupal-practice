@@ -1,0 +1,532 @@
+<?php
+
+function itonics_nirala_teacher_permission(): array
+{
+    return [
+        'view itonics nirala teacher' => [
+            'title' => t('View Itonics Nirala Teacher'),
+            'description' => t('Access to view teacher details.'),
+        ],
+        'add itonics nirala teacher' => [
+            'title' => t('Add Itonics Nirala Teacher'),
+            'description' => t('Access to add teacher details.'),
+        ],
+        'edit itonics nirala teacher' => [
+            'title' => t('Edit Itonics Nirala Teacher'),
+            'description' => t('Access to edit teacher details.'),
+        ],
+        'delete itonics nirala teacher' => [
+            'title' => t('Delete Itonics Nirala Teacher'),
+            'description' => t('Access to delete teacher details.'),
+        ]
+    ];
+}
+
+
+function itonics_nirala_teacher_menu()
+{
+    $items = [];
+
+    // Admin page to list teacher.
+    $items['admin/teacher'] = [
+        'title' => t('Teacher List'),
+        'page callback' => 'itonics_nirala_teacher_list_page',
+        'page arguments' => [],
+        'access callback' => 'user_access',
+        'access arguments' => ['view itonics nirala teacher'],
+        'type' => MENU_NORMAL_ITEM,
+    ];
+
+    // Create teacher form.
+    $items['admin/teacher/create'] = [
+        'title' => t('Create Teacher'),
+        'page callback' => 'itonics_nirala_teacher_form_page',
+        'page arguments' => ['new'],
+        'access callback' => 'user_access',
+        'access arguments' => ['add itonics nirala teacher'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Edit teacher page.
+    $items['admin/teacher/edit/%'] = [
+        'title' => t('Edit Teacher'),
+        'page callback' => 'itonics_nirala_teacher_form_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => ['edit itonics nirala teacher'],
+        'type' => MENU_CALLBACK,
+    ];
+
+    // View teacher page.
+    $items['admin/teacher/view/%'] = [
+        'title' => t('View Teacher'),
+        'page callback' => 'itonics_nirala_teacher_view_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('view itonics nirala teacher'),
+        'type' => MENU_CALLBACK,
+    ];
+
+    // Delete teacher page.
+    $items['admin/teacher/delete/%'] = [
+        'title' => t('Delete Teacher'),
+        'page callback' => 'itonics_nirala_teacher_delete_page',
+        'page arguments' => ['3'],
+        'access callback' => 'user_access',
+        'access arguments' => array('delete itonics nirala teacher'),
+        'type' => MENU_CALLBACK,
+    ];
+    return $items;
+}
+
+function itonics_nirala_teacher_list_page()
+{
+    $output = '';
+
+    // Get the search term from the URL parameter.
+    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $output .= itonics_nirala_teacher_search_form($search_term);
+
+    $limit = 10; // Number of records per page.
+
+    // Build the base query.
+    $query = db_select('itonics_nirala_teacher', 'p')
+        ->fields('p', ['id', 'teacher_id', 'first_name', 'last_name', 'gender', 'job_type', 'join_date', 'created', 'description']);
+
+    // Apply search filters if a search term is provided.
+    if (!empty($search_term)) {
+        $or_conditions = db_or()
+            ->condition('p.first_name', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.last_name', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.teacher_id', '%' . db_like($search_term) . '%', 'LIKE')
+            ->condition('p.job_type', '%' . db_like($search_term) . '%', 'LIKE');
+        $query->condition($or_conditions);
+    }
+
+    // Get the total number of teachers (for pagination).
+    $total_teachers = clone $query;
+    $total_teachers = $total_teachers->countQuery()->execute()->fetchField();
+
+    // If no teachers are found, show a message.
+    if ($total_teachers == 0) {
+        $output .= '<p>' . t('No teachers found.') . '</p>';
+        return $output;
+    }
+
+    // Add pagination.
+    $current_page = pager_find_page();
+    $offset = $current_page * $limit;
+    $query->range($offset, $limit);
+
+    // Execute the query.
+    $result = $query->execute();
+
+    // Generate the teacher table.
+    $output .= itonics_nirala_teacher_table($result, $offset);
+
+    // Generate pagination links.
+    $output .= theme('pager');
+
+    return $output;
+}
+
+function  itonics_nirala_teacher_search_form($search_term = '')
+{
+    $input_style = 'padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; width: 300px;';
+    $button_style = 'padding: 10px 20px; background-color: #007bff; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+    $right_button_style = 'margin-left: auto; padding: 10px 20px; background-color: #007bff; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+    $reset_button_style = 'padding: 10px 20px; background-color: #6c757d; color: #fff; border: none; border-radius: 5px; font-size: 16px;';
+
+    $output = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+               <form method="get" action="" style="display: flex; gap: 10px;">
+                   <input type="text" name="search" placeholder="' . t('Search by any field') . '" value="' . htmlspecialchars($search_term) . '" 
+                          style="' . $input_style . '"/>
+                   <button type="submit" style="' . $button_style . '">' . t('Search') . '</button>
+                   <a href="' . url('admin/teacher/list') . '" style="' . $reset_button_style . '">' . t('Reset') . '</a>
+               </form>
+               <a href="' . url('admin/teacher/create') . '" 
+                  style="' . $right_button_style . '">' . t('Create Teacher') . '</a>
+           </div>';
+
+    return $output;
+}
+
+function itonics_nirala_teacher_table($result, $offset)
+{
+    $output = '<table style="width: 100%; border-collapse: collapse;">';
+    $output .= '<tr style="background-color: #f8f9fa;">
+                   <th>' . t('S.N.') . '</th>
+                   <th>' . t('Name') . '</th>
+                   <th>' . t('Gender') . '</th>
+                   <th>' . t('Job Type') . '</th>
+                    <th>' . t('Teacher Id') . '</th>
+                   <th>' . t('Join Date') . '</th>
+                   <th>' . t('Created at') . '</th>
+                   <th>' . t('Description') . '</th>
+                   <th>' . t('Actions') . '</th>
+               </tr>';
+
+    $serial_no = $offset + 1;
+
+    foreach ($result as $teacher) {
+        $output .= '<tr>';
+        $output .= '<td>' . $serial_no++ . '</td>';
+        $output .= '<td>' . $teacher->first_name . ' ' . $teacher->last_name . '</td>';
+        $output .= '<td>' . $teacher->gender . '</td>';
+        $output .= '<td>' . $teacher->job_type . '</td>';
+        $output .= '<td>' . $teacher->teacher_id . '</td>';
+        $output .= '<td>' . $teacher->join_date . '</td>';
+        $output .= '<td>' . $teacher->created . '</td>';
+        $output .= '<td>' . $teacher->description . '</td>';
+        $output .= '<td>
+            <a href="' . url('admin/teacher/edit/' . $teacher->id) . '" 
+               style="padding: 5px 10px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 3px; margin-right: 5px;">' . t('Edit') . '</a>
+            <a href="' . url('admin/teacher/delete/' . $teacher->id) . '" 
+               style="padding: 5px 10px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 3px;">' . t('Delete') . '</a>
+        </td>';
+
+        $output .= '</tr>';
+    }
+
+    $output .= '</table>';
+
+    return $output;
+}
+
+
+function itonics_nirala_teacher_form_page()
+{
+    $form = drupal_get_form('itonics_nirala_teacher_form');
+    return drupal_render($form);
+}
+
+function itonics_nirala_teacher_form($form, &$form_state)
+{
+    $id = arg(3);
+
+    if (is_numeric($id)) {
+        $teacher = db_select('itonics_nirala_teacher', 'p')
+            ->fields('p')
+            ->condition('id', $id)
+            ->execute()
+            ->fetchObject();
+    }
+
+
+    // first name
+    $form['first_name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('First Name'),
+        '#required' => TRUE,
+        '#weight' => 1,
+        '#default_value' => isset($teacher->first_name) ? check_plain($teacher->first_name) : '',
+    );
+
+    // last name
+    $form['last_name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Last Name'),
+        '#required' => TRUE,
+        '#weight' => 2,
+        '#default_value' => isset($teacher->last_name) ? check_plain($teacher->last_name) : '',
+    );
+    // Image
+    $form['profile_picture'] = array(
+        '#type' => 'file',
+        '#title' => t('Profile Picture'),
+        '#description' => t('Upload a profile picture'),
+        '#weight' => 3,
+        '#default_value' => isset($teacher->profile_picture) ? check_plain($teacher->profile_picture) : '',
+    );
+
+
+    // Description
+    $form['description'] = array(
+        '#type' => 'text_format',
+        '#title' => t('Description'),
+        '#format' => 'filtered_html',
+        '#weight' => 4,
+        '#default_value' => isset($teacher->description) ? filter_xss($teacher->description) : '',
+        '#required' => TRUE,
+    );
+
+    // Fetch all states
+    $state = db_select('itonics_nirala_states', 's')
+        ->fields('s', ['id', 'state_name'])
+        ->execute()
+        ->fetchAllKeyed();
+
+    $saved_state = [];
+    if (isset($teacher->district_id)) {
+        $query = db_select('itonics_nirala_districts', 'd');
+        $query->join('itonics_nirala_states', 's', 's.id = d.itonics_nirala_states_id');
+        $query->addField('s', 'id'); 
+        $query->condition('d.id', $teacher->district_id, '=');
+        
+        $saved_state = $query->execute()->fetchCol();
+    }
+    
+    // State dropdown
+    $form['state'] = [
+        '#type' => 'select',
+        '#title' => t('State'),
+        '#options' => $state,
+        '#required' => TRUE,
+        '#weight' => 5,
+        '#default_value' => $saved_state,
+        '#ajax' => [
+            'callback' => 'ajax_update_districts',
+            'wrapper' => 'district-wrapper',
+            'method' => 'replace',
+            'effect' => 'fade',
+        ],
+    ];
+
+
+
+    $district = db_select('itonics_nirala_districts', 'npc')
+        ->fields('npc', ['id', 'district_name'])
+        ->execute()
+        ->fetchAllKeyed();
+
+
+    $form['district_id'] = [
+        '#type' => 'select',
+        '#title' => t('District'),
+        '#options' => $district,
+        '#required' => TRUE,
+        '#weight' => 6,
+        '#multiple' => TRUE,
+        '#prefix' => '<div id="district-wrapper">',
+        '#suffix' => '</div>',
+        '#default_value' => isset($teacher->district_id) ? filter_xss($teacher->district_id) : '',
+    ];
+
+
+
+    $jobType_options = [
+        '1' => t('1'),
+        '2' => t('2'),
+        '3' => t('3'),
+    ];
+
+    $form['job_type'] = [
+        '#type' => 'select',
+        '#title' => t('Job Type'),
+        '#weight' => 7,
+        '#options' => $jobType_options,
+        '#required' => TRUE,
+        '#default_value' => isset($teacher->job_type) ? filter_xss($teacher->job_type) : '',
+    ];
+
+
+    $gender_options = [
+        'male' => t('Male'),
+        'female' => t('Female'),
+        'other' => t('Other'),
+    ];
+
+    $form['gender'] = array(
+        '#type' => 'radios',
+        '#title' => t('Gender'),
+        '#required' => TRUE,
+        '#weight' => 8,
+        '#options' => $gender_options,
+        '#default_value' => isset($teacher->gender) ? filter_xss($teacher->gender) : '',
+    );
+
+
+    $form['join_date'] = [
+        '#type' => 'date',
+        '#title' => t('Join Date'),
+        '#date_format' => 'Y-m-d',
+        '#weight' => 10,
+        '#date_increment' => 1,
+        //  '#default_value' => isset($product->expiry_date) ? $product->expiry_date : '',
+    ];
+
+    // Submit Button
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#weight' => 11,
+        '#value' => t('Save Teacher'),
+        '#ajax' => array(
+            'callback' => 'itonics_nirala_teacher_ajax_callback',
+            'wrapper' => '',
+            'event' => 'click',
+        ),
+    );
+
+    return $form;
+}
+
+function ajax_update_districts($form, &$form_state)
+{
+    $data = $form_state['values'];
+    $state_id = $data['state'];
+    $district_options = [];
+
+    if (!empty($state_id)) {
+        $query = db_select('itonics_nirala_districts', 'p')
+            ->fields('p', ['id', 'district_name'])
+            ->condition('p.itonics_nirala_states_id', $state_id)
+            ->execute()
+            ->fetchAllKeyed();
+
+        if (!empty($query)) {
+            $district_options = $query;
+        }
+    }
+    $form['district_id']['#options'] = $district_options;
+
+    return $form['district_id'];
+}
+
+
+
+function itonics_nirala_teacher_ajax_callback($form, &$form_state)
+{
+    $values = $form_state['values'];
+    $file_url = itonics_nirala_teacher_image_validate();
+    $id = arg(3);
+
+    if (empty($file_url) && is_numeric($id)) {
+        $existing_teacher = db_select('itonics_nirala_teacher', 'p')
+            ->fields('p', ['profile_picture'])
+            ->condition('id', $id)
+            ->execute()
+            ->fetchObject();
+
+        if ($existing_teacher) {
+            $file_url = $existing_teacher->profile_picture;
+        }
+    }
+
+    $teacherId = 'TEACH' . time() . rand(100, 999);
+
+    $teachdata = [
+        'first_name' => $values['first_name'],
+        'last_name' => $values['last_name'],
+        'teacher_id' => $teacherId,
+        'profile_picture' => $file_url,
+        'gender' => $values['gender'],
+        'description' => $values['description']['value'],
+        'job_type' => $values['job_type'],
+        'faculty_id' => $values['faculty_id'],
+        'district_id' => $values['district_id'],
+        'join_date' => isset($values['join_date'])
+            ? sprintf('%04d-%02d-%02d', $values['join_date']['year'], $values['join_date']['month'], $values['join_date']['day'])
+            : date('Y-m-d'),
+        'created' => date('Y-m-d H:i:s', REQUEST_TIME),
+        'changed' => date('Y-m-d H:i:s', REQUEST_TIME),
+    ];
+
+    if (!is_numeric($id)) {
+        $id = itonics_nirala_teacher_actions($teachdata);
+    } else {
+        $teachdata['changed'] = date('Y-m-d H:i:s', REQUEST_TIME);
+
+        // Check for new profile picture and delete the old one
+        if (!empty($file_url) && !empty($existing_teacher) && $existing_teacher->profile_picture !== $file_url) {
+            $old_image_path = $existing_teacher->profile_picture;
+            if (file_exists($old_image_path)) {
+                unlink($old_image_path);
+            }
+        }
+        itonics_nirala_teacher_actions($teachdata, $id);
+    }
+
+    drupal_json_output(['status' => 'redirect', 'url' => url('admin/teacher')]);
+    exit();
+
+}
+
+function itonics_nirala_teacher_actions($data, $teacher_id = NULL)
+{
+    if ($teacher_id) {
+        db_update('itonics_nirala_teacher')
+            ->fields($data)
+            ->condition('id', $teacher_id)
+            ->execute();
+
+        drupal_set_message(t('Teacher updated successfully.'));
+    } else {
+        $teacher_id = db_insert('itonics_nirala_teacher')
+            ->fields($data)
+            ->execute();
+        drupal_set_message(t('Teacher created successfully.'));
+    }
+  
+}
+
+function itonics_nirala_teacher_image_validate()
+{
+    if (!empty($_FILES['files']['name']['profile_picture'])) {
+        $file = file_save_upload('profile_picture', [
+            'file_validate_is_image' => [],
+            'file_validate_extensions' => ['png gif jpg jpeg'],
+        ]);
+
+        if ($file) {
+            $unique_filename = 'itonics_' . uniqid() . '.' . pathinfo($file->filename, PATHINFO_EXTENSION);
+            $target_directory = 'public://teacher_images/';
+
+            if (!file_prepare_directory($target_directory, FILE_CREATE_DIRECTORY)) {
+                form_set_error('', t('Failed to prepare the target directory.'));
+            }
+
+            $file_path = $target_directory . $unique_filename;
+            if (!file_move($file, $file_path, FILE_EXISTS_REPLACE)) {
+                form_set_error('profile_picture', t('Failed to move the uploaded file.'));
+            } else {
+                $file->uri = $file_path;
+                $file->status = FILE_STATUS_PERMANENT;
+                file_save($file);
+
+                $file_url = file_create_url($file->uri);
+                return $file_url;
+            }
+        } else {
+            form_set_error('profile_picture', t('The file could not be uploaded. Please try again.'));
+        }
+    }
+}
+
+
+function itonics_nirala_teacher_delete_page()
+{
+    $id = arg(3);
+    $teacher = db_select('itonics_nirala_teacher', 'p')
+        ->fields('p')
+        ->condition('id', $id)
+        ->execute()
+        ->fetchObject();
+
+    if (!$teacher) {
+        return t('Teacher not found.');
+    }
+
+    if (isset($_POST['confirm_delete'])) {
+
+        if (isset($teacher->profile_picture) && file_exists($teacher->profile_picture)) {
+            unlink($teacher->profile_picture);
+        }
+
+
+        db_delete('itonics_nirala_teacher')
+            ->condition('id', $id)
+            ->execute();
+
+        drupal_set_message(t('Teacher deleted successfully.'));
+        return drupal_goto('admin/teacher');
+    }
+
+    $output = '<h2>' . t('Are you sure you want to delete this teacher?') . '</h2>';
+    $output .= '<p><strong>' . t('Name') . ':</strong> ' . $teacher->first_name . ' ' . $teacher->last_name . '</p>';
+    $output .= '<form method="post">';
+    $output .= '<input type="submit" name="confirm_delete" value="' . t('Yes, Delete') . '" class="button">';
+    $output .= '<a href="' . url('admin/teacher') . '" class="button">' . t('Cancel') . '</a>';
+    $output .= '</form>';
+
+    return $output;
+}

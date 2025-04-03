@@ -1,0 +1,158 @@
+<?php
+
+// Student module table structure
+function itonics_nirala_student_schema()
+{
+    $schema = array();
+
+    $schema['itonics_nirala_student'] = array(
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'not null' => TRUE,
+                'description' => 'Primary Key: Unique ID for each record.',
+            ),
+            'student_id' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Student id of each record.',
+            ),
+            'first_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'First name of each record.',
+            ),
+            'last_name' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Last Name of each record.',
+            ),
+            'profile_picture' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => FALSE,
+                'description' => 'Profile Picture of each record.',
+            ),
+            'gender' => array(
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => TRUE,
+                'description' => 'Gender of each record.',
+            ),
+            'grade' => array(
+                'type' => 'varchar',
+                'length' => '4',
+                'description' => "grade of student",
+                'not null' => FALSE,
+            ),
+            'admission_date' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'datetime',
+                'not null' => TRUE,
+                'description' => 'Admission date of each record.',
+            ),
+            'description' => array(
+                'type' => 'text',
+                'size' => 'big',
+                'description' => "Description of student",
+                'not null' => FALSE,
+            ),
+            'created' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'datetime',
+                'not null' => TRUE,
+                'description' => 'Created timestamp of each record.',
+            ),
+            'changed' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'datetime',
+                'not null' => TRUE,
+                'description' => 'Updated timestamp of each record.',
+            ),
+            'faculty_id' => array(
+                'type' => 'int',
+                'not null' => TRUE,
+                'description' => 'Faculty of each record.',
+            ),
+        ),
+        'primary key' => array('id'),
+        'indexes' => array(
+            'student_id' => array('student_id'),
+            'faculty_id' => array('faculty_id'),
+        ),
+    );
+
+    return $schema;
+}
+
+/** description changed to longtext  */
+function itonics_nirala_student_update_7000()
+{
+    $table = 'itonics_nirala_student';
+    $column = 'description';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'text',
+                'size' => 'big',
+                'description' => "Description of student",
+                'not null' => FALSE,
+            );
+            db_change_field('itonics_nirala_student', 'description', 'description', $spec);
+        }
+    }
+}
+
+/**grade length updated */
+function itonics_nirala_student_update_7001()
+{
+    $table = 'itonics_nirala_student';
+    $column = 'grade';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'varchar',
+                'length' => '4',
+                'description' => "grade of student",
+                'not null' => FALSE,
+            );
+            db_change_field('itonics_nirala_student', 'grade', 'grade', $spec);
+        }
+    }
+}
+
+/** student id made unique */
+function itonics_nirala_student_update_7002()
+{
+    $table = 'itonics_nirala_student';
+    $column = 'student_id';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            db_add_unique_key('itonics_nirala_student', 'student_id_unique', array('student_id'));
+        }
+    }
+}
+
+/** facultyid added in student module */
+function itonics_nirala_student_update_7003()
+{
+    $table = 'itonics_nirala_student';
+    $column = 'faculty_id';
+
+    if (!db_table_exists($table)) {
+        if (!db_field_exists($table, $column)) {
+            $spec = array(
+                'type' => 'int',
+                'description' => "faculty of student",
+                'not null' => FALSE,
+            );
+            db_add_field('itonics_nirala_student', 'faculty_id', $spec);
+        }
+    }
+}

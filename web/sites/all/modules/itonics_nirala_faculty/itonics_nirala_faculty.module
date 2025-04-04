@@ -1,4 +1,5 @@
 <?php
+include_once(drupal_get_path('module', 'itonics_nirala_faculty') . '/itonics_nirala_faculty.controller.inc');
 
 function itonics_nirala_faculty_entity_info()
 {
@@ -12,6 +13,7 @@ function itonics_nirala_faculty_entity_info()
       'id' => 'id',
       'label' => 'name',
     ),
+    // 'entity class' =>'itonics_nirala_faculty',
     'bundle keys' => array(
       'bundle' => 'type',
     ),
@@ -31,7 +33,8 @@ function itonics_nirala_faculty_entity_info()
 /**
  * Implements hook_field_info().
  */
-function itonics_nirala_faculty_field_info() {
+function itonics_nirala_faculty_field_info()
+{
   $info = array();
 
   $info['itonics_nirala_faculty']['fields'] = array(
@@ -56,51 +59,7 @@ function itonics_nirala_faculty_uri($entity)
 }
 
 
-class ItonicsNiralaFacultyController extends DrupalDefaultEntityController
-{
 
-  /**
-   * Create and return a new itonics_nirala_faculty entity.
-   */
-  public function create()
-  {
-    $entity = new stdClass();
-    $entity->type = 'itonics_nirala_faculty';
-    $entity->id = 0;
-    $entity->name = '';
-    $entity->created = REQUEST_TIME;
-    return $entity;
-  }
-
-  /**
-   * Saves the entity using drupal_write_record().
-   */
-  public function save($entity)
-  {
-    if (empty($entity->id)) {
-      $entity->created = time();
-    }
-
-    module_invoke_all('entity_presave', $entity, 'itonics_nirala_faculty');
-
-    // Determine if it's an insert or update
-    $primary_keys = $entity->id ? 'id' : array();
-
-    drupal_write_record('itonics_nirala_faculty', $entity, $primary_keys);
-
-    $invocation = empty($primary_keys) ? 'entity_insert' : 'entity_update';
-
-    if (empty($primary_keys)) {
-      field_attach_insert('itonics_nirala_faculty', $entity);
-    } else {
-      field_attach_update('itonics_nirala_faculty', $entity);
-    }
-
-    module_invoke_all($invocation, $entity, 'itonics_nirala_faculty');
-
-    return $entity;
-  }
-}
 
 //implementation of hook_permission
 function itonics_nirala_faculty_permission()
@@ -150,7 +109,7 @@ function itonics_nirala_faculty_menu()
   );
 
   // edit Faculty Form
-  $items['admin/itonics_faculty/edit/%'] = array(
+  $items['admin/itonics_faculty/edit/%itonics_nirala_faculty'] = array(
     'title' => 'Edit Faculty',
     'page callback' => 'itonics_nirala_faculty_form_load',
     'page arguments' => [3],
@@ -197,20 +156,22 @@ function itonics_nirala_faculty_view($faculty_id)
     return drupal_goto('admin/itonics_faculty');
   }
 
-  $build = entity_view('itonics_nirala_faculty', $entity);
-
   $content = [
-    '#theme' => 'item_list',
-    '#items' => [
-      '<h2>' . check_plain($entity->name) . '</h2>',
-      l(t('Back to Faculty'), 'admin/itonics_faculty', ['attributes' => ['class' => ['back-to-faculty']]]),
+    'name' => [
+      '#markup' => '<h2 class="faculty-name">' . check_plain($entity->name) . '</h2>',
+      '#prefix' => '<div class="faculty-header">',
+      '#suffix' => '</div>',
     ],
-    '#attributes' => ['class' => ['faculty-view']],
+    'back_link' => [
+      '#markup' => l(
+        t('← Back to Faculty'),
+        'admin/itonics_faculty',
+        ['attributes' => ['class' => ['btn', 'btn-primary', 'back-to-faculty']]]
+      ),
+      '#prefix' => '<div class="faculty-footer text-center">',
+      '#suffix' => '</div>',
+    ],
   ];
-
-  if (isset($build) && is_array($build)) {
-    $content = array_merge($content, $build);
-  }
 
   $commands = [];
   $commands[] = ctools_modal_command_display('Faculty Details', $content);
@@ -218,6 +179,7 @@ function itonics_nirala_faculty_view($faculty_id)
   print ajax_render($commands);
   exit;
 }
+
 
 
 
@@ -285,14 +247,14 @@ function itonics_nirala_faculty_page()
 }
 
 
-function itonics_nirala_faculty_form_load($id = NULL)
+function itonics_nirala_faculty_form_load($entity = NULL)
 {
   ctools_include('ajax');
   ctools_include('modal');
   ctools_modal_add_js();
 
   // Pass faculty data to the form
-  $form = drupal_get_form('itonics_nirala_faculty_form', $id);
+  $form = drupal_get_form('itonics_nirala_faculty_form', $entity);
   $commands[] = ctools_modal_command_display("Faculty", $form);
 
   print ajax_render($commands);
@@ -302,16 +264,8 @@ function itonics_nirala_faculty_form_load($id = NULL)
 
 
 
-function itonics_nirala_faculty_form($form, &$form_state, $faculty_id = NULL)
+function itonics_nirala_faculty_form($form, &$form_state, $entity = NULL)
 {
-  $entity = NULL;
-
-  if ($faculty_id) {
-    $entities = entity_load('itonics_nirala_faculty', [$faculty_id]);
-    if (!empty($entities)) {
-      $entity = reset($entities);
-    }
-  }
 
   $form['faculty_id'] = [
     '#type' => 'hidden',
@@ -401,9 +355,9 @@ function nirala_itonics_faculty_delete_form($form, &$form_state, $faculty)
   // Confirmation form
   $form = confirm_form(
     $form,
-    t('Are you sure, Do you want to delete?'),
-    'activity-list',
-    t('The action cannot be undone.'),
+    t(''),
+    '/admin/itonics_faculty',
+    t('Are you sure, Do you want to delete this faculty? The action cannot be undone.'),
     t('Delete'),
     t('Cancel')
   );
@@ -427,17 +381,16 @@ function nirala_itonics_faculty_delete_form_submit($form, &$form_state)
     return drupal_goto('admin/itonics_faculty');
   }
 
+  $controller = entity_get_controller('itonics_nirala_faculty');
 
-  db_delete('itonics_nirala_faculty')
-    ->condition('id', $id)
-    ->execute();
+  $controller->delete($id);
 
   drupal_set_message(t('Faculty details deleted successfully.'));
 
 
   // Close modal and redirect
-  $commands[] = ctools_modal_command_dismiss(); 
-  $commands[] = ctools_ajax_command_redirect('admin/itonics_faculty'); 
+  $commands[] = ctools_modal_command_dismiss();
+  $commands[] = ctools_ajax_command_redirect('admin/itonics_faculty');
 
   print ajax_render($commands);
   exit;
